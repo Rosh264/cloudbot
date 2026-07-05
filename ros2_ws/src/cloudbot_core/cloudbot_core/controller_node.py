@@ -1,12 +1,11 @@
 import rclpy
 from rclpy.node import Node
-from std_msgs.msg import String, Bool  # Added Bool for sensor data
+from std_msgs.msg import String, Bool
 
 from cloudbot_core.robot import Robot
 from cloudbot_core.world import World
 from cloudbot_core.movement import Movement
 from cloudbot_core.planner import Planner
-from cloudbot_core.sensor import Sensor
 
 class ControllerNode(Node):
     def __init__(self):
@@ -15,10 +14,9 @@ class ControllerNode(Node):
         self.robot = Robot()
         self.world = World()
         
-        # 1. State variable to track sensor status
         self.obstacle_detected = False
         
-        # 2. Command Subscriber (Listens to Teleop)
+        # 1. Command Subscriber (Listens for driving commands)
         self.command_subscription = self.create_subscription(
             String,
             '/cloudbot/commands',
@@ -26,7 +24,7 @@ class ControllerNode(Node):
             10
         )
         
-        # 3. Sensor Subscriber (Listens to Sensor Node)
+        # 2. Sensor Subscriber (Listens for obstacles)
         self.sensor_subscription = self.create_subscription(
             Bool,
             '/cloudbot/obstacles',
@@ -34,20 +32,31 @@ class ControllerNode(Node):
             10
         )
         
+        # 3. NEW: Telemetry Publisher (Shouts battery & position to the world)
+        self.telemetry_publisher = self.create_publisher(
+            String, 
+            '/cloudbot/telemetry', 
+            10
+        )
+        
         self.get_logger().info("🤖 CloudBot Controller Node Ready.")
         self.world.display(self.robot)
 
     def sensor_callback(self, msg):
-        # 4. Update the robot's brain with the latest sensor reading
         self.obstacle_detected = msg.data
 
     def command_callback(self, msg):
         command = msg.data.lower()
         
-        # 5. SAFETY OVERRIDE: Refuse to move if sensor is triggered!
+        # 1. NEW: OUT OF BATTERY CHECK
+        if self.robot.battery <= 0 and command in ["forward", "backward", "left", "right"]:
+            self.get_logger().error("🪫 OUT OF BATTERY! CloudBot is dead.")
+            return 
+            
+        # 2. EXISTING: SAFETY OVERRIDE
         if self.obstacle_detected and command in ["forward", "backward", "left", "right"]:
             self.get_logger().error("🛑 EMERGENCY STOP: Obstacle detected! Waiting for clear path...")
-            return  # Exit the function immediately without moving
+            return 
             
         self.get_logger().info(f"Executing: {command}")
         
@@ -70,6 +79,12 @@ class ControllerNode(Node):
 
         self.world.display(self.robot)
         
+        # NEW: Create a string with our data and publish it to the network!
+        telemetry_msg = String()
+        telemetry_msg.data = f"Battery: {self.robot.battery}% | Position: {self.robot.position}"
+        self.telemetry_publisher.publish(telemetry_msg)
+        
+        # Check win condition
         if self.world.reached_goal(self.robot):
             self.get_logger().info("🎉 Congratulations! Goal Reached! Shutting down node.")
             rclpy.shutdown()
