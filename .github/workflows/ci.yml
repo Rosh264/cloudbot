@@ -1,4 +1,4 @@
-name: CloudBot Continuous Integration & Deployment
+name: CloudBot Continuous Integration
 
 on:
   push:
@@ -29,26 +29,3 @@ jobs:
       run: |
         docker load --input /tmp/cloudbot.tar
         docker run --rm cloudbot:latest /bin/bash -c "source /opt/ros/jazzy/setup.bash && source ros2_ws/install/setup.bash && ros2 pkg list | grep cloudbot_core"
-
-  deploy:
-    needs: build-and-test
-    runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-
-    steps:
-    - name: Deploy to Remote Linux Server via SSH
-      uses: appleboy/ssh-action@v1.0.3
-      with:
-        host: ${{ secrets.SERVER_HOST }}
-        username: ${{ secrets.SERVER_USER }}
-        key: ${{ secrets.SSH_PRIVATE_KEY }}
-        script: |
-          mkdir -p ~/projects
-          cd ~/projects
-          if [ ! -d "cloudbot" ]; then
-            git clone https://github.com/${{ github.repository }}.git cloudbot
-          fi
-          cd cloudbot
-          git pull origin main
-          docker compose down
-          docker compose up --build -d
