@@ -1,0 +1,31 @@
+name: CloudBot Continuous Integration
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v4
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: Build Robot Docker Image
+      uses: docker/build-push-action@v6
+      with:
+        context: .
+        file: ./Dockerfile
+        tags: cloudbot:latest
+        outputs: type=docker,dest=/tmp/cloudbot.tar
+
+    - name: Verify Image Compilation
+      run: |
+        docker load --input /tmp/cloudbot.tar
+        docker run --rm cloudbot:latest /bin/bash -c "source /opt/ros/jazzy/setup.bash && source ros2_ws/install/setup.bash && ros2 pkg list | grep cloudbot_core"
