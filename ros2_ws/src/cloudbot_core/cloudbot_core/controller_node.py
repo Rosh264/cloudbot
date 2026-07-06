@@ -1,11 +1,18 @@
 import rclpy
 from rclpy.node import Node
 from std_msgs.msg import String, Bool
+import random
 
 from cloudbot_core.robot import Robot
 from cloudbot_core.world import World
 from cloudbot_core.movement import Movement
 from cloudbot_core.planner import Planner
+
+# NEW: Import Cloud Database libraries
+import firebase_admin
+from firebase_admin import credentials, firestore
+import datetime
+import os
 
 class ControllerNode(Node):
     def __init__(self):
@@ -41,6 +48,19 @@ class ControllerNode(Node):
         
         self.get_logger().info("🤖 CloudBot Controller Node Ready.")
         self.world.display(self.robot)
+
+        # NEW: Initialize Firebase (Mock or Real)
+        self.db = None
+        try:
+            if os.path.exists("firebase_key.json"):
+                cred = credentials.Certificate("firebase_key.json")
+                firebase_admin.initialize_app(cred)
+                self.db = firestore.client()
+                self.get_logger().info("☁️ FIREBASE CONNECTED: Logging to cloud.")
+            else:
+                self.get_logger().warning("☁️ FIREBASE MOCK MODE: 'firebase_key.json' not found. Simulating cloud logs.")
+        except Exception as e:
+            self.get_logger().error(f"Firebase init error: {e}")
 
     def sensor_callback(self, msg):
         self.obstacle_detected = msg.data
@@ -84,10 +104,34 @@ class ControllerNode(Node):
         telemetry_msg.data = f"Battery: {self.robot.battery}% | Position: {self.robot.position}"
         self.telemetry_publisher.publish(telemetry_msg)
         
+        # NEW: Log to Firebase Cloud!
+        log_data = {
+            "command": command,
+            "battery": self.robot.battery,
+            "position": self.robot.position,
+            "timestamp": datetime.datetime.now().isoformat()
+        }
+        if self.db:
+            self.db.collection("robot_telemetry").add(log_data)
+            self.get_logger().info("☁️ Logged to Firebase Firestore.")
+        else:
+            self.get_logger().info(f"☁️ [MOCK CLOUD LOG]: Saved {log_data}")
+        
+        # Check win condition
+        import random # Put this at the very top of your file if it's not there!
+
+        # ... (inside your command_callback at the bottom) ...
         # Check win condition
         if self.world.reached_goal(self.robot):
-            self.get_logger().info("🎉 Congratulations! Goal Reached! Shutting down node.")
-            rclpy.shutdown()
+            self.get_logger().info(f"📦 Package Delivered at {self.world.goal}!")
+            
+            # Generate a new random goal that isn't the current position
+            new_goal = self.world.goal
+            while new_goal == self.world.goal or new_goal == self.robot.position:
+                new_goal = [random.randint(0, 4), random.randint(0, 4)]
+                
+            self.world.goal = new_goal
+            self.get_logger().info(f"📍 New Assignment Received: Proceed to {self.world.goal}")
 
 def main(args=None):
     rclpy.init(args=args)

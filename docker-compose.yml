@@ -1,0 +1,7 @@
+services:
+  cloudbot-alpha:
+    build: .
+    container_name: cloudbot_alpha
+    ports:
+      - "8000:8000"
+    restart: unless-stopped
