@@ -68,6 +68,19 @@ class ControllerNode(Node):
     def command_callback(self, msg):
         command = msg.data.lower()
         
+        # ==========================================
+        # ⚡ NEW: RECHARGE COMMAND ADDED HERE ⚡
+        # ==========================================
+        if command == "recharge":
+            self.robot.battery = 100
+            self.get_logger().info("⚡ Battery Recharged to 100%")
+            # Instantly update the web dashboard
+            telemetry_msg = String()
+            telemetry_msg.data = f"Battery: {self.robot.battery}% | Position: {self.robot.position}"
+            self.telemetry_publisher.publish(telemetry_msg)
+            return
+        # ==========================================
+        
         # 1. NEW: OUT OF BATTERY CHECK
         if self.robot.battery <= 0 and command in ["forward", "backward", "left", "right"]:
             self.get_logger().error("🪫 OUT OF BATTERY! CloudBot is dead.")
@@ -117,10 +130,6 @@ class ControllerNode(Node):
         else:
             self.get_logger().info(f"☁️ [MOCK CLOUD LOG]: Saved {log_data}")
         
-        # Check win condition
-        import random # Put this at the very top of your file if it's not there!
-
-        # ... (inside your command_callback at the bottom) ...
         # Check win condition
         if self.world.reached_goal(self.robot):
             self.get_logger().info(f"📦 Package Delivered at {self.world.goal}!")
