@@ -28,7 +28,7 @@ class WebControllerNode(Node):
 
 app = FastAPI(title="CloudBot Command Center")
 
-# Safely locate and mount the static folder based on where app.py is located
+# Mount the static folder for the custom logo
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 STATIC_DIR = os.path.join(BASE_DIR, "static")
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
@@ -37,7 +37,6 @@ app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 def get_dashboard():
     global latest_telemetry
     
-    # Safely parse grid position and battery level
     rob_r, rob_c = 0, 0
     battery = 100
     
@@ -55,17 +54,18 @@ def get_dashboard():
         except:
             pass
             
-    # Build a 5x5 dynamic HTML Grid
+    # Build a 5x5 dynamic HTML Grid with the CUSTOM LOGO
     grid_html = '<div style="display: grid; grid-template-columns: repeat(5, 50px); gap: 4px; justify-content: center; margin-bottom: 20px;">'
     for r in range(5):
         for c in range(5):
             is_robot = (r == rob_r and c == rob_c)
             bg = "#a6e3a1" if is_robot else "#1e1e2e"
-            icon = "🤖" if is_robot else ""
-            grid_html += f'<div style="width: 50px; height: 50px; background: {bg}; border-radius: 5px; display: flex; align-items: center; justify-content: center; font-size: 24px; border: 1px solid #45475a;">{icon}</div>'
+            # THIS IS THE MAGIC LINE: Replacing the emoji with your custom image
+            icon = '<img src="/static/logo.png" width="40" style="border-radius: 8px;">' if is_robot else ""
+            
+            grid_html += f'<div style="width: 50px; height: 50px; background: {bg}; border-radius: 5px; display: flex; align-items: center; justify-content: center; border: 1px solid #45475a;">{icon}</div>'
     grid_html += '</div>'
     
-    # Dynamic styling based on battery state
     battery_color = "#a6e3a1" if battery > 20 else "#f38ba8"
 
     html_content = f"""
@@ -73,7 +73,6 @@ def get_dashboard():
         <head>
             <meta http-equiv="refresh" content="1">
             <title>CloudBot Dashboard</title>
-            <!-- Here is your new Favicon injected into the browser tab! -->
             <link rel="icon" type="image/png" href="/static/logo.png">
             <style>
                 body {{ font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #1e1e2e; color: #cdd6f4; text-align: center; margin-top: 30px; }}
@@ -94,7 +93,6 @@ def get_dashboard():
         </head>
         <body>
             <h1>
-                <!-- Here is your new Logo injected into the main UI! -->
                 <img src="/static/logo.png" width="60" style="border-radius: 12px; box-shadow: 0 4px 8px rgba(0,0,0,0.4);">
                 CloudBot Command Center
             </h1>
@@ -117,7 +115,6 @@ def get_dashboard():
                     <button class="btn left" onclick="sendCommand('left')">A</button>
                     <button class="btn down" onclick="sendCommand('backward')">S</button>
                     <button class="btn right" onclick="sendCommand('right')">D</button>
-                    <!-- New Recharge Button -->
                     <button class="btn recharge-btn" onclick="sendCommand('recharge')">⚡ RECHARGE ⚡</button>
                 </div>
             </div>
