@@ -40,8 +40,9 @@ def get_dashboard():
     rob_r, rob_c = 0, 0
     battery = 100
     
-    if "Position: [" in latest_telemetry:
+    if "Position:" in latest_telemetry:
         try:
+            # Safely parse your specific string format: "Battery: 50% | Position: [1, 3]"
             pos_str = latest_telemetry.split("Position: [")[1].split("]")[0]
             r_str, c_str = pos_str.split(",")
             rob_r, rob_c = int(r_str.strip()), int(c_str.strip())
@@ -60,25 +61,44 @@ def get_dashboard():
         for c in range(5):
             is_robot = (r == rob_r and c == rob_c)
             bg = "#a6e3a1" if is_robot else "#1e1e2e"
-            # THIS IS THE MAGIC LINE: Replacing the emoji with your custom image
             icon = '<img src="/static/logo.png" width="40" style="border-radius: 8px;">' if is_robot else ""
             
             grid_html += f'<div style="width: 50px; height: 50px; background: {bg}; border-radius: 5px; display: flex; align-items: center; justify-content: center; border: 1px solid #45475a;">{icon}</div>'
     grid_html += '</div>'
     
-    battery_color = "#a6e3a1" if battery > 20 else "#f38ba8"
+    # NEW: 3-Stage Battery Color Logic
+    if battery <= 15:
+        battery_color = "#f38ba8" # Red
+    elif battery <= 30:
+        battery_color = "#fab387" # Orange
+    else:
+        battery_color = "#a6e3a1" # Green
 
     html_content = f"""
     <html>
         <head>
             <meta http-equiv="refresh" content="1">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
             <title>CloudBot Dashboard</title>
             <link rel="icon" type="image/png" href="/static/logo.png">
             <style>
-                body {{ font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #1e1e2e; color: #cdd6f4; text-align: center; margin-top: 30px; }}
-                h1 {{ color: #89b4fa; font-size: 32px; margin-bottom: 20px; display: flex; align-items: center; justify-content: center; gap: 15px; }}
-                .card {{ background: #313244; padding: 25px; border-radius: 12px; box-shadow: 0px 8px 15px rgba(0,0,0,0.3); display: inline-block; margin-bottom: 25px; border: 1px solid #45475a; }}
-                .telemetry {{ font-size: 18px; color: #a6e3a1; font-weight: bold; margin: 15px 0; }}
+                body {{ font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #1e1e2e; color: #cdd6f4; text-align: center; margin-top: 30px; margin-bottom: 50px; overflow-x: hidden; }}
+                h1 {{ color: #89b4fa; font-size: 32px; margin-bottom: 20px; display: flex; align-items: center; justify-content: center; gap: 15px; flex-wrap: wrap; }}
+                
+                /* NEW: Responsive Flexbox Layout */
+                .main-container {{ display: flex; flex-direction: column; align-items: center; gap: 20px; justify-content: center; padding: 0 15px; }}
+                
+                @media (min-width: 768px) {{
+                    .main-container {{ flex-direction: row; align-items: stretch; }}
+                    /* Force controls to the left on desktop */
+                    .controls-card {{ order: -1; }}
+                }}
+
+                .card {{ background: #313244; padding: 25px; border-radius: 12px; box-shadow: 0px 8px 15px rgba(0,0,0,0.3); border: 1px solid #45475a; width: 100%; max-width: 350px; display: flex; flex-direction: column; justify-content: center; }}
+                
+                /* Applied the battery color directly to the single telemetry line */
+                .telemetry {{ font-size: 18px; color: {battery_color}; font-weight: bold; margin: 15px 0; }}
+                
                 .d-pad {{ display: grid; grid-template-columns: repeat(3, 80px); gap: 10px; justify-content: center; margin-top: 20px; }}
                 .btn {{ padding: 20px 0; background: #89b4fa; color: #11111b; font-weight: bold; border-radius: 8px; cursor: pointer; border: none; font-size: 16px; transition: 0.2s; }}
                 .btn:hover {{ background: #b4befe; }}
@@ -89,6 +109,10 @@ def get_dashboard():
                 .right {{ grid-column: 3; }}
                 .recharge-btn {{ background: #a6e3a1; grid-column: 1 / span 3; margin-top: 10px; }}
                 .recharge-btn:hover {{ background: #94e2d5; }}
+                
+                /* NEW: Popup Toast CSS */
+                #toast {{ visibility: hidden; min-width: 250px; background-color: #f38ba8; color: #11111b; text-align: center; border-radius: 8px; padding: 16px; position: fixed; z-index: 1; left: 50%; bottom: 30px; transform: translateX(-50%); font-weight: bold; font-size: 16px; opacity: 0; transition: opacity 0.3s, bottom 0.3s; box-shadow: 0px 4px 10px rgba(0,0,0,0.5); }}
+                #toast.show {{ visibility: visible; opacity: 1; bottom: 50px; }}
             </style>
         </head>
         <body>
@@ -97,30 +121,55 @@ def get_dashboard():
                 CloudBot Command Center
             </h1>
             
-            <div class="card">
-                <h2 style="color: #bac2de; margin: 0;">Live Telemetry</h2>
-                <div style="font-size: 18px; margin: 10px 0; color: {battery_color};">🔋 Battery: {battery}%</div>
-                <div class="telemetry">{latest_telemetry}</div>
-                {grid_html}
-            </div>
-            
-            <br>
-            
-            <div class="card">
-                <h2 style="color: #bac2de; margin: 0;">Remote Control</h2>
-                <p style="color: #a6adc8; font-size: 14px;">Use <b>W A S D</b> on your keyboard!</p>
+            <div class="main-container">
+                <div class="card telemetry-card">
+                    <h2 style="color: #bac2de; margin: 0;">Live Telemetry</h2>
+                    <div class="telemetry">{latest_telemetry}</div>
+                    {grid_html}
+                </div>
                 
-                <div class="d-pad">
-                    <button class="btn up" onclick="sendCommand('forward')">W</button>
-                    <button class="btn left" onclick="sendCommand('left')">A</button>
-                    <button class="btn down" onclick="sendCommand('backward')">S</button>
-                    <button class="btn right" onclick="sendCommand('right')">D</button>
-                    <button class="btn recharge-btn" onclick="sendCommand('recharge')">⚡ RECHARGE ⚡</button>
+                <div class="card controls-card">
+                    <h2 style="color: #bac2de; margin: 0;">Remote Control</h2>
+                    <p style="color: #a6adc8; font-size: 14px;">Use <b>W A S D</b> or tap the buttons.</p>
+                    
+                    <div class="d-pad">
+                        <button class="btn up" onclick="sendCommand('forward')">W</button>
+                        <button class="btn left" onclick="sendCommand('left')">A</button>
+                        <button class="btn down" onclick="sendCommand('backward')">S</button>
+                        <button class="btn right" onclick="sendCommand('right')">D</button>
+                        <button class="btn recharge-btn" onclick="sendCommand('recharge')">⚡ RECHARGE ⚡</button>
+                    </div>
                 </div>
             </div>
 
+            <div id="toast">🚧 Obstacle Detected!</div>
+
             <script>
+                // Pass Python variables into JavaScript
+                const currentR = {rob_r};
+                const currentC = {rob_c};
+                let isToastVisible = false;
+
+                function showToast(message) {{
+                    if (isToastVisible) return;
+                    isToastVisible = true;
+                    const toast = document.getElementById("toast");
+                    toast.innerText = message;
+                    toast.className = "show";
+                    setTimeout(function() {{
+                        toast.className = toast.className.replace("show", "");
+                        isToastVisible = false;
+                    }}, 2000);
+                }}
+
                 function sendCommand(direction) {{
+                    // Smart Client Obstacle & Boundary Detection
+                    if (direction === 'forward' && currentR === 0) {{ showToast("🚧 Obstacle Detected! Cannot move forward."); return; }}
+                    if (direction === 'backward' && currentR === 4) {{ showToast("🚧 Obstacle Detected! Cannot move backward."); return; }}
+                    if (direction === 'left' && currentC === 0) {{ showToast("🚧 Obstacle Detected! Cannot move left."); return; }}
+                    if (direction === 'right' && currentC === 4) {{ showToast("🚧 Obstacle Detected! Cannot move right."); return; }}
+
+                    // If path is clear, send to ROS 2 backend
                     fetch('/move/' + direction);
                 }}
 
