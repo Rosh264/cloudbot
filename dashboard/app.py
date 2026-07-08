@@ -54,14 +54,14 @@ def get_dashboard():
         except:
             pass
             
-    # ⚡ BUG 2 FIX: Parse the new obstacle flag from the backend payload
+    # The unified backend flag
     if "Obstacle: True" in latest_telemetry:
         has_obstacle = True
 
-    # ⚡ BUG 2 FIX: Conditionally render a highly visible banner if an obstacle blocks the path
+    # The exact banner text
     obstacle_banner = ""
     if has_obstacle:
-        obstacle_banner = '<div style="background-color: #f38ba8; color: #11111b; font-weight: bold; padding: 12px; border-radius: 8px; margin-bottom: 15px; box-shadow: 0 4px 6px rgba(0,0,0,0.3);">🚧 Obstacle Detected on Backend!</div>'
+        obstacle_banner = '<div style="background-color: #f38ba8; color: #11111b; font-weight: bold; padding: 12px; border-radius: 8px; margin-bottom: 15px; box-shadow: 0 4px 6px rgba(0,0,0,0.3);">🚧 Obstacle Detected!</div>'
             
     grid_html = '<div style="display: grid; grid-template-columns: repeat(5, 50px); gap: 4px; justify-content: center; margin-bottom: 20px;">'
     for r in range(5):
@@ -106,8 +106,6 @@ def get_dashboard():
                 .right {{ grid-column: 3; }}
                 .recharge-btn {{ background: #a6e3a1; grid-column: 1 / span 3; margin-top: 10px; }}
                 .recharge-btn:hover {{ background: #94e2d5; }}
-                #toast {{ visibility: hidden; min-width: 250px; background-color: #f38ba8; color: #11111b; text-align: center; border-radius: 8px; padding: 16px; position: fixed; z-index: 1; left: 50%; bottom: 30px; transform: translateX(-50%); font-weight: bold; font-size: 16px; opacity: 0; transition: opacity 0.3s, bottom 0.3s; box-shadow: 0px 4px 10px rgba(0,0,0,0.5); }}
-                #toast.show {{ visibility: visible; opacity: 1; bottom: 50px; }}
             </style>
         </head>
         <body>
@@ -138,31 +136,8 @@ def get_dashboard():
                 </div>
             </div>
 
-            <div id="toast">🚧 Boundary Detected!</div>
-
             <script>
-                const currentR = {rob_r};
-                const currentC = {rob_c};
-                let isToastVisible = false;
-
-                function showToast(message) {{
-                    if (isToastVisible) return;
-                    isToastVisible = true;
-                    const toast = document.getElementById("toast");
-                    toast.innerText = message;
-                    toast.className = "show";
-                    setTimeout(function() {{
-                        toast.className = toast.className.replace("show", "");
-                        isToastVisible = false;
-                    }}, 2000);
-                }}
-
                 function sendCommand(direction) {{
-                    if (direction === 'forward' && currentR === 0) {{ showToast("🚧 Boundary! Cannot move forward."); return; }}
-                    if (direction === 'backward' && currentR === 4) {{ showToast("🚧 Boundary! Cannot move backward."); return; }}
-                    if (direction === 'left' && currentC === 0) {{ showToast("🚧 Boundary! Cannot move left."); return; }}
-                    if (direction === 'right' && currentC === 4) {{ showToast("🚧 Boundary! Cannot move right."); return; }}
-
                     fetch('/move/' + direction);
                 }}
 
