@@ -28,7 +28,6 @@ class WebControllerNode(Node):
 
 app = FastAPI(title="CloudBot Command Center")
 
-# Mount the static folder for the custom logo
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 STATIC_DIR = os.path.join(BASE_DIR, "static")
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
@@ -39,10 +38,10 @@ def get_dashboard():
     
     rob_r, rob_c = 0, 0
     battery = 100
+    has_obstacle = False
     
     if "Position:" in latest_telemetry:
         try:
-            # Safely parse your specific string format: "Battery: 50% | Position: [1, 3]"
             pos_str = latest_telemetry.split("Position: [")[1].split("]")[0]
             r_str, c_str = pos_str.split(",")
             rob_r, rob_c = int(r_str.strip()), int(c_str.strip())
@@ -55,24 +54,30 @@ def get_dashboard():
         except:
             pass
             
-    # Build a 5x5 dynamic HTML Grid with the CUSTOM LOGO
+    # ⚡ BUG 2 FIX: Parse the new obstacle flag from the backend payload
+    if "Obstacle: True" in latest_telemetry:
+        has_obstacle = True
+
+    # ⚡ BUG 2 FIX: Conditionally render a highly visible banner if an obstacle blocks the path
+    obstacle_banner = ""
+    if has_obstacle:
+        obstacle_banner = '<div style="background-color: #f38ba8; color: #11111b; font-weight: bold; padding: 12px; border-radius: 8px; margin-bottom: 15px; box-shadow: 0 4px 6px rgba(0,0,0,0.3);">🚧 Obstacle Detected on Backend!</div>'
+            
     grid_html = '<div style="display: grid; grid-template-columns: repeat(5, 50px); gap: 4px; justify-content: center; margin-bottom: 20px;">'
     for r in range(5):
         for c in range(5):
             is_robot = (r == rob_r and c == rob_c)
             bg = "#a6e3a1" if is_robot else "#1e1e2e"
             icon = '<img src="/static/logo.png" width="40" style="border-radius: 8px;">' if is_robot else ""
-            
             grid_html += f'<div style="width: 50px; height: 50px; background: {bg}; border-radius: 5px; display: flex; align-items: center; justify-content: center; border: 1px solid #45475a;">{icon}</div>'
     grid_html += '</div>'
     
-    # NEW: 3-Stage Battery Color Logic
     if battery <= 15:
-        battery_color = "#f38ba8" # Red
+        battery_color = "#f38ba8" 
     elif battery <= 30:
-        battery_color = "#fab387" # Orange
+        battery_color = "#fab387" 
     else:
-        battery_color = "#a6e3a1" # Green
+        battery_color = "#a6e3a1" 
 
     html_content = f"""
     <html>
@@ -84,21 +89,13 @@ def get_dashboard():
             <style>
                 body {{ font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #1e1e2e; color: #cdd6f4; text-align: center; margin-top: 30px; margin-bottom: 50px; overflow-x: hidden; }}
                 h1 {{ color: #89b4fa; font-size: 32px; margin-bottom: 20px; display: flex; align-items: center; justify-content: center; gap: 15px; flex-wrap: wrap; }}
-                
-                /* NEW: Responsive Flexbox Layout */
                 .main-container {{ display: flex; flex-direction: column; align-items: center; gap: 20px; justify-content: center; padding: 0 15px; }}
-                
                 @media (min-width: 768px) {{
                     .main-container {{ flex-direction: row; align-items: stretch; }}
-                    /* Force controls to the left on desktop */
                     .controls-card {{ order: -1; }}
                 }}
-
                 .card {{ background: #313244; padding: 25px; border-radius: 12px; box-shadow: 0px 8px 15px rgba(0,0,0,0.3); border: 1px solid #45475a; width: 100%; max-width: 350px; display: flex; flex-direction: column; justify-content: center; }}
-                
-                /* Applied the battery color directly to the single telemetry line */
                 .telemetry {{ font-size: 18px; color: {battery_color}; font-weight: bold; margin: 15px 0; }}
-                
                 .d-pad {{ display: grid; grid-template-columns: repeat(3, 80px); gap: 10px; justify-content: center; margin-top: 20px; }}
                 .btn {{ padding: 20px 0; background: #89b4fa; color: #11111b; font-weight: bold; border-radius: 8px; cursor: pointer; border: none; font-size: 16px; transition: 0.2s; }}
                 .btn:hover {{ background: #b4befe; }}
@@ -109,8 +106,6 @@ def get_dashboard():
                 .right {{ grid-column: 3; }}
                 .recharge-btn {{ background: #a6e3a1; grid-column: 1 / span 3; margin-top: 10px; }}
                 .recharge-btn:hover {{ background: #94e2d5; }}
-                
-                /* NEW: Popup Toast CSS */
                 #toast {{ visibility: hidden; min-width: 250px; background-color: #f38ba8; color: #11111b; text-align: center; border-radius: 8px; padding: 16px; position: fixed; z-index: 1; left: 50%; bottom: 30px; transform: translateX(-50%); font-weight: bold; font-size: 16px; opacity: 0; transition: opacity 0.3s, bottom 0.3s; box-shadow: 0px 4px 10px rgba(0,0,0,0.5); }}
                 #toast.show {{ visibility: visible; opacity: 1; bottom: 50px; }}
             </style>
@@ -123,8 +118,9 @@ def get_dashboard():
             
             <div class="main-container">
                 <div class="card telemetry-card">
-                    <h2 style="color: #bac2de; margin: 0;">Live Telemetry</h2>
-                    <div class="telemetry">{latest_telemetry}</div>
+                    <h2 style="color: #bac2de; margin: 0; margin-bottom: 10px;">Live Telemetry</h2>
+                    {obstacle_banner}
+                    <div class="telemetry">Battery: {battery}% | Position: [{rob_r}, {rob_c}]</div>
                     {grid_html}
                 </div>
                 
@@ -142,10 +138,9 @@ def get_dashboard():
                 </div>
             </div>
 
-            <div id="toast">🚧 Obstacle Detected!</div>
+            <div id="toast">🚧 Boundary Detected!</div>
 
             <script>
-                // Pass Python variables into JavaScript
                 const currentR = {rob_r};
                 const currentC = {rob_c};
                 let isToastVisible = false;
@@ -163,13 +158,11 @@ def get_dashboard():
                 }}
 
                 function sendCommand(direction) {{
-                    // Smart Client Obstacle & Boundary Detection
-                    if (direction === 'forward' && currentR === 0) {{ showToast("🚧 Obstacle Detected! Cannot move forward."); return; }}
-                    if (direction === 'backward' && currentR === 4) {{ showToast("🚧 Obstacle Detected! Cannot move backward."); return; }}
-                    if (direction === 'left' && currentC === 0) {{ showToast("🚧 Obstacle Detected! Cannot move left."); return; }}
-                    if (direction === 'right' && currentC === 4) {{ showToast("🚧 Obstacle Detected! Cannot move right."); return; }}
+                    if (direction === 'forward' && currentR === 0) {{ showToast("🚧 Boundary! Cannot move forward."); return; }}
+                    if (direction === 'backward' && currentR === 4) {{ showToast("🚧 Boundary! Cannot move backward."); return; }}
+                    if (direction === 'left' && currentC === 0) {{ showToast("🚧 Boundary! Cannot move left."); return; }}
+                    if (direction === 'right' && currentC === 4) {{ showToast("🚧 Boundary! Cannot move right."); return; }}
 
-                    // If path is clear, send to ROS 2 backend
                     fetch('/move/' + direction);
                 }}
 

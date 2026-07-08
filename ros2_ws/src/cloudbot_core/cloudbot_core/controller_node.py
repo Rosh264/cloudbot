@@ -8,7 +8,7 @@ from cloudbot_core.world import World
 from cloudbot_core.movement import Movement
 from cloudbot_core.planner import Planner
 
-# NEW: Import Cloud Database libraries
+# Import Cloud Database libraries
 import firebase_admin
 from firebase_admin import credentials, firestore
 import datetime
@@ -23,33 +23,28 @@ class ControllerNode(Node):
         
         self.obstacle_detected = False
         
-        # 1. Command Subscriber (Listens for driving commands)
+        # 1. Command Subscriber
         self.command_subscription = self.create_subscription(
-            String,
-            '/cloudbot/commands',
-            self.command_callback,
-            10
+            String, '/cloudbot/commands', self.command_callback, 10
         )
         
-        # 2. Sensor Subscriber (Listens for obstacles)
+        # 2. Sensor Subscriber
         self.sensor_subscription = self.create_subscription(
-            Bool,
-            '/cloudbot/obstacles',
-            self.sensor_callback,
-            10
+            Bool, '/cloudbot/obstacles', self.sensor_callback, 10
         )
         
-        # 3. NEW: Telemetry Publisher (Shouts battery & position to the world)
+        # 3. Telemetry Publisher
         self.telemetry_publisher = self.create_publisher(
-            String, 
-            '/cloudbot/telemetry', 
-            10
+            String, '/cloudbot/telemetry', 10
         )
+        
+        # ⚡ BUG 1 FIX: The Heartbeat Timer. Broadcasts state every 1 second continuously.
+        self.telemetry_timer = self.create_timer(1.0, self.publish_telemetry)
         
         self.get_logger().info("🤖 CloudBot Controller Node Ready.")
         self.world.display(self.robot)
 
-        # NEW: Initialize Firebase (Mock or Real)
+        # Initialize Firebase
         self.db = None
         try:
             if os.path.exists("firebase_key.json"):
@@ -58,35 +53,31 @@ class ControllerNode(Node):
                 self.db = firestore.client()
                 self.get_logger().info("☁️ FIREBASE CONNECTED: Logging to cloud.")
             else:
-                self.get_logger().warning("☁️ FIREBASE MOCK MODE: 'firebase_key.json' not found. Simulating cloud logs.")
+                self.get_logger().warning("☁️ FIREBASE MOCK MODE: 'firebase_key.json' not found.")
         except Exception as e:
             self.get_logger().error(f"Firebase init error: {e}")
 
     def sensor_callback(self, msg):
         self.obstacle_detected = msg.data
+        # Force a telemetry update the moment an obstacle state changes
+        self.publish_telemetry()
 
     def command_callback(self, msg):
         command = msg.data.lower()
         
-        # ==========================================
-        # ⚡ NEW: RECHARGE COMMAND ADDED HERE ⚡
-        # ==========================================
+        # RECHARGE COMMAND
         if command == "recharge":
             self.robot.battery = 100
             self.get_logger().info("⚡ Battery Recharged to 100%")
-            # Instantly update the web dashboard
-            telemetry_msg = String()
-            telemetry_msg.data = f"Battery: {self.robot.battery}% | Position: {self.robot.position}"
-            self.telemetry_publisher.publish(telemetry_msg)
+            self.publish_telemetry()
             return
-        # ==========================================
         
-        # 1. NEW: OUT OF BATTERY CHECK
+        # OUT OF BATTERY CHECK
         if self.robot.battery <= 0 and command in ["forward", "backward", "left", "right"]:
             self.get_logger().error("🪫 OUT OF BATTERY! CloudBot is dead.")
             return 
             
-        # 2. EXISTING: SAFETY OVERRIDE
+        # SAFETY OVERRIDE
         if self.obstacle_detected and command in ["forward", "backward", "left", "right"]:
             self.get_logger().error("🛑 EMERGENCY STOP: Obstacle detected! Waiting for clear path...")
             return 
@@ -112,12 +103,10 @@ class ControllerNode(Node):
 
         self.world.display(self.robot)
         
-        # NEW: Create a string with our data and publish it to the network!
-        telemetry_msg = String()
-        telemetry_msg.data = f"Battery: {self.robot.battery}% | Position: {self.robot.position}"
-        self.telemetry_publisher.publish(telemetry_msg)
+        # Manually trigger telemetry on move
+        self.publish_telemetry()
         
-        # NEW: Log to Firebase Cloud!
+        # Log to Firebase Cloud!
         log_data = {
             "command": command,
             "battery": self.robot.battery,
@@ -126,30 +115,30 @@ class ControllerNode(Node):
         }
         if self.db:
             self.db.collection("robot_telemetry").add(log_data)
-            self.get_logger().info("☁️ Logged to Firebase Firestore.")
-        else:
-            self.get_logger().info(f"☁️ [MOCK CLOUD LOG]: Saved {log_data}")
         
         # Check win condition
         if self.world.reached_goal(self.robot):
             self.get_logger().info(f"📦 Package Delivered at {self.world.goal}!")
-            
-            # Generate a new random goal that isn't the current position
             new_goal = self.world.goal
             while new_goal == self.world.goal or new_goal == self.robot.position:
                 new_goal = [random.randint(0, 4), random.randint(0, 4)]
-                
             self.world.goal = new_goal
             self.get_logger().info(f"📍 New Assignment Received: Proceed to {self.world.goal}")
+
+    def publish_telemetry(self):
+        """⚡ BUG 2 FIX: Centralized telemetry publisher that includes Obstacle Status"""
+        telemetry_msg = String()
+        # Payload now includes Obstacle flag for the frontend to parse
+        telemetry_msg.data = f"Battery: {self.robot.battery}% | Position: {self.robot.position} | Obstacle: {self.obstacle_detected}"
+        self.telemetry_publisher.publish(telemetry_msg)
 
 def main(args=None):
     rclpy.init(args=args)
     node = ControllerNode()
-    
     try:
         rclpy.spin(node)
     except KeyboardInterrupt:
-        node.get_logger().info("Manual shutdown triggered.")
+        pass
     finally:
         if rclpy.ok():
             node.destroy_node()
