@@ -12,18 +12,19 @@ The entire framework is isolated inside Docker containers and managed via an aut
 
 The application is built using a decentralized microservice architecture:
 
-* **Robotics Core (ROS 2 Jazzy):** Manages asynchronous nodes for sensory scanning, movement calculation, and path planning.
-* **Web Gateway (FastAPI & Uvicorn):** Serves the telemetry interface and exposes port mappings out of the virtual network loop.
+* **Robotics Core (ROS 2):** Manages asynchronous nodes for sensory scanning, movement calculation, and path planning.
+* **Web Gateway (FastAPI):** Serves the telemetry interface and exposes port mappings out of the virtual network loop.
 * **Cloud Database (Firebase):** Captures high-frequency state changes and battery degradation logs.
-* **Automation Framework (GitHub Actions CI):** Spawns cloud runners to build images and validate environment configurations on every code push.
+* **Automation Framework (GitHub Actions):** Spawns cloud runners to build images and validate environment configurations on every code push.
 
 ---
 
-## 🚀 Features
+## 🚀 Key Features
 
 * **Autonomous State Management:** Simulates real-world hardware limits with live battery degradation and an API-triggered recharge loop.
-* **Dynamic Obstacle Avoidance:** Sensor nodes constantly evaluate environment conditions and publish safety metrics to the navigation controller.
-* **Optimized Docker Footprint:** Leverages `.dockerignore` mechanisms to isolate host machine compilation debris from clean container layers.
+* **Dynamic Obstacle Avoidance:** Sensor nodes constantly evaluate environment conditions and publish safety metrics to the navigation controller to prevent collisions.
+* **Smart UI Feedback:** The responsive dashboard features event-driven toast notifications and dynamic rendering based on the robot's real-time coordinates.
+* **Optimized Docker Footprint:** Leverages multi-stage builds and `.dockerignore` mechanisms to isolate host machine compilation debris from clean container layers.
 
 ---
 
@@ -31,4 +32,22 @@ The application is built using a decentralized microservice architecture:
 
 * **Robotics:** ROS 2 (Jazzy), `colcon`, `rclpy`
 * **Backend:** Python 3, FastAPI, Uvicorn, Firebase Admin SDK
-* **DevOps:** Docker, Docker Compose, Git, GitHub Actions, Render PaaS
+* **Frontend:** HTML5, CSS3 (Flexbox), Vanilla JavaScript
+* **DevOps:** Docker, Git, GitHub Actions, Render PaaS
+
+---
+
+## ⚡ Quick Start (Local Deployment)
+
+To run the full stack locally on your machine using Docker Compose:
+
+```bash
+# Clone the repository
+git clone [https://github.com/Rosh264/cloudbot.git](https://github.com/Rosh264/cloudbot.git)
+cd cloudbot
+
+# Build and launch the containerized environment
+docker compose up --build -d
+
+# Access the live dashboard
+http://localhost:8000
