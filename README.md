@@ -8,6 +8,17 @@ The entire framework is isolated inside Docker containers and managed via an aut
 
 ---
 
+### The Challenge:
+Modern robotics requires seamless communication between heavy hardware logic at the edge and accessible web interfaces in the cloud. I set out to build a cloud-connected architecture that allows a user to monitor and control an autonomous ROS 2 system from a web browser, without compromising the underlying real-time physics engine.
+
+### The Solution:
+I developed a decentralized microservice stack. The "edge brain" runs on ROS 2, continuously calculating Breadth-First Search (BFS) pathing, sensor data, and battery degradation. To bring this to the web, I built an asynchronous FastAPI gateway that exposes the robot's telemetry. The entire environment is containerized using Docker and managed by a GitHub Actions CI/CD pipeline for automated cloud deployments.
+
+### The Impact:
+The result is a highly responsive, real-time command dashboard deployed on a PaaS, backed by a robust NoSQL Firebase database. It successfully demonstrates the complete lifecycle of cloud-integrated robotics, from hardware-level obstacle detection to live frontend event notifications.
+
+---
+
 ## 🧠 How the Autonomous Logic Works
 
 The core of CloudBot is a custom physics and pathfinding engine designed to simulate real-world warehouse logistics. The robot does not move randomly; it operates on a strict state-machine loop:
