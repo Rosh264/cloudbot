@@ -8,6 +8,18 @@ The entire framework is isolated inside Docker containers and managed via an aut
 
 ---
 
+## 🧠 How the Autonomous Logic Works
+
+The core of CloudBot is a custom physics and pathfinding engine designed to simulate real-world warehouse logistics. The robot does not move randomly; it operates on a strict state-machine loop:
+
+1. **The Environment:** The robot operates on a dynamic `5x5` coordinate grid representing a warehouse floor.
+2. **The Objective (Target Acquisition):** The system randomly generates a "delivery goal" coordinate. 
+3. **The Brain (Pathfinding):** Once a goal is set, the `planner.py` node uses the **Breadth-First Search (BFS) algorithm** to calculate the absolute shortest path to the target, ensuring optimal delivery time.
+4. **The Reflexes (Obstacle Detection):** Before taking any step, the `sensor_node` scans the adjacent block. If a dynamic obstacle or a fixed boundary wall is detected, the robot executes an `EMERGENCY STOP` and triggers a real-time `Obstacle: True` flag to the web dashboard.
+5. **The Hardware Constraints (Battery Drain):** Every successful grid movement drains the battery by exactly 5%. If the battery hits 0%, the movement controllers lock up completely until a human operator sends an asynchronous `/recharge` command via the FastAPI web interface.
+
+---
+
 ## 🏗️ System Architecture
 
 The application is built using a decentralized microservice architecture:
